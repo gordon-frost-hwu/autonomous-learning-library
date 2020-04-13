@@ -1,11 +1,11 @@
 import torch
 from all.environments import State
 from .approximation import Approximation
-
+from all.nn import Normalizer
 
 class FeatureNetwork(Approximation):
-    def __init__(self, model, optimizer=None, name='feature', **kwargs):
-        model = FeatureModule(model)
+    def __init__(self, model, optimizer=None, name='feature', normalize_input=False, **kwargs):
+        model = FeatureModule(model, normalize_input=normalize_input)
         super().__init__(model, optimizer, name=name, **kwargs)
         self._cache = []
         self._out = []
@@ -40,12 +40,19 @@ class FeatureNetwork(Approximation):
         return torch.cat(graphs), torch.cat(grads)
 
 class FeatureModule(torch.nn.Module):
-    def __init__(self, model):
+    def __init__(self, model, normalize_input=False):
         super().__init__()
         self.model = model
+        self._normalizer = Normalizer() if normalize_input is True else None
 
     def forward(self, states):
-        features = self.model(states.features.float())
+        if self._normalizer is not None:
+            with torch.no_grad():
+                input_state = self._normalizer.normalize(states.raw)
+        else:
+            input_state = states.features
+
+        features = self.model(input_state.float())
         return State(
             features,
             mask=states.mask,

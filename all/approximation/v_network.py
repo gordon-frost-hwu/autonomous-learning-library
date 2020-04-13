@@ -7,9 +7,11 @@ class VNetwork(Approximation):
             model,
             optimizer,
             name='v',
+            normalise_inputs=False,
+            box=None,
             **kwargs
     ):
-        model = VModule(model)
+        model = VModule(model, normalize_inputs=normalise_inputs, box=box)
         super().__init__(
             model,
             optimizer,
@@ -18,5 +20,8 @@ class VNetwork(Approximation):
         )
 
 class VModule(RLNetwork):
+    def __init__(self, model, normalize_inputs=False, box=None):
+        super().__init__(model, normalize_inputs=normalize_inputs, box=box)
+
     def forward(self, states):
         return super().forward(states).squeeze(-1)

@@ -5,19 +5,107 @@ from torch.nn import functional as F
 import numpy as np
 from all.environments import State
 
+class Normalizer(object):
+    def __init__(self):
+        self.initialised = False
+        self.n = None
+        self.mean = None
+        self.mean_diff = None
+        self.var = None
+
+    def initialise(self, inputs):
+        num_inputs = inputs[0].shape
+        device = inputs.device
+        self.n = torch.zeros(num_inputs).to(device)
+        self.mean = torch.zeros(num_inputs).to(device)
+        self.mean_diff = torch.zeros(num_inputs).to(device)
+        self.var = torch.zeros(num_inputs).to(device)
+        self.initialised = True
+
+    def _observe(self, x):
+        self.n += 1.
+        last_mean = self.mean.clone()
+        self.mean += (x-self.mean)/self.n
+        self.mean_diff += (x-last_mean)*(x-self.mean)
+        self.var = torch.clamp(self.mean_diff/self.n, min=1e-2)
+
+    def normalize(self, inputs):
+        if type(inputs) is State:
+            inputs = inputs.raw
+
+        if not self.initialised:
+            self.initialise(inputs)
+
+        result = torch.empty(inputs.shape[0], inputs.shape[1], dtype=torch.float).to("cuda")
+
+        idx = 0
+        for input in inputs:
+            self._observe(input)
+            obs_std = torch.sqrt(self.var)
+            result[idx, :] = (input - self.mean)/obs_std
+        return result
+
+class newNormalizer:
+    def __init__(self, size=0):
+        self.maxValues = np.zeros((1, size))
+        self.minValues = np.zeros((1, size))
+
+    def setMinMaxFromGymEnv(self, box):
+        self.maxValues = torch.tensor(box.high, device="cuda")
+        self.minValues = torch.tensor(box.low, device="cuda")
+
+    def update(self, values):
+        compMax = np.greater(values, self.maxValues)
+        idxMax = np.where(compMax==True)
+        np.put(self.maxValues, idxMax, values[idxMax])
+        compMin = np.less(values, self.minValues)
+        idxMin = np.where(compMin==True)
+        np.put(self.minValues, idxMin, values[idxMin])
+
+    def normalize(self, values):
+        normVal = 2*(values - self.minValues) / (self.maxValues - self.minValues) - 1
+        return normVal
+
+    def normalize_batch(self, X):
+        normVal = np.zeros(np.shape(X))
+        for i, values in enumerate(X):
+            aux = 2*(values - self.minValues) / (self.maxValues - self.minValues) - 1
+            normVal[i] = aux
+        return normVal
+
 
 class RLNetwork(nn.Module):
     """
     Wraps a network such that States can be given as input.
     """
 
-    def __init__(self, model, _=None):
+    def __init__(self, model, _=None, normalize_inputs=False, box=None):
         super().__init__()
         self.model = model
         self.device = next(model.parameters()).device
+        self._normalizer = None
+        if normalize_inputs is True and box is not None:
+            self._normalizer = newNormalizer()
+            self._normalizer.setMinMaxFromGymEnv(box)
+        self.count = 0
 
     def forward(self, state):
-        return self.model(state.features.float()) * state.mask.float().unsqueeze(-1)
+        if self._normalizer is not None:
+            # print("input state: {0}".format(state.raw))
+
+            with torch.no_grad():
+                features = self._normalizer.normalize(state.features)
+            # print("features: {0}".format(features))
+
+        else:
+            features = state.features.float()
+        # print(features)
+        #
+        # if self.count == 5:
+        #     exit(0)
+        # self.count += 1
+        return self.model(features) * state.mask.float().unsqueeze(-1)
+
 
 class Aggregation(nn.Module):
     """len()
