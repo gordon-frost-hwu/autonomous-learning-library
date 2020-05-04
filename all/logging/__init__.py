@@ -48,17 +48,39 @@ class DummyWriter(Writer):
 
 
 class ExperimentWriter(SummaryWriter, Writer):
-    def __init__(self, agent_name, env_name, loss=True):
+    def __init__(self, agent_name, env_name, loss=True, parent_folder=""):
         self.env_name = env_name
         current_time = str(datetime.now())
+
+        if parent_folder != "":
+            # maxDirectoryIndex = max([(int)(s.strip("run")) for s in os.listdir("runs")])
+            i = 0
+            idxs = [0]
+            dirs = os.listdir("runs") if parent_folder == "" else os.listdir(parent_folder)
+            print("dirs: {0}".format(dirs))
+            for s in dirs:
+                if "run" in s:
+                    idxs.append((int)(s.split("_")[-1].strip("run")))
+            maxDirectoryIndex = max(idxs)
+            # TODO - make more robust
+            if parent_folder != "":
+                folder_name = "run{0}".format(maxDirectoryIndex + 1)
+            else:
+                folder_name = "{0}_run{1}".format(agent_name, maxDirectoryIndex + 1)
+            self.log_dir = os.path.join(parent_folder, folder_name)
+        else:
+            self.log_dir = os.path.join(
+                "runs", ("%s_%s_%s" % (agent_name, COMMIT_HASH, current_time))
+            )
+
         os.makedirs(
             os.path.join(
-                "runs", ("%s %s %s" % (agent_name, COMMIT_HASH, current_time)), env_name
+                self.log_dir, env_name
             )
         )
-        self.log_dir = os.path.join(
-            "runs", ("%s %s %s" % (agent_name, COMMIT_HASH, current_time))
-        )
+
+
+
         self._frames = 0
         self._episodes = 1
         self._loss = loss

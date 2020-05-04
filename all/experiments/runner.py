@@ -24,6 +24,7 @@ class EnvRunner(ABC):
         self._quiet = quiet
         self._best_returns = -np.inf
         self._returns100 = []
+        self._environment_solved = False
         self.run()
 
     @abstractmethod
@@ -33,7 +34,8 @@ class EnvRunner(ABC):
     def _done(self):
         return (
             self._writer.frames > self._max_frames or
-            self._writer.episodes > self._max_episodes
+            self._writer.episodes > self._max_episodes or
+            self._environment_solved
         )
 
     def _log(self, returns, fps):
@@ -45,6 +47,10 @@ class EnvRunner(ABC):
         self._returns100.append(returns)
         if len(self._returns100) == 100:
             mean = np.mean(self._returns100)
+            # if mean >= self._env.env.spec.reward_threshold:
+            #     print("Trial ended early. Environment Solved with "
+            #           "mean reward over last 100 episodes: {0}".format(mean))
+            #     self._environment_solved = True
             std = np.std(self._returns100)
             self._writer.add_summary('returns100', mean, std, step="frame")
             self._returns100 = []
@@ -52,6 +58,64 @@ class EnvRunner(ABC):
         self._writer.add_evaluation('returns/frame', returns, step="frame")
         self._writer.add_evaluation("returns/max", self._best_returns, step="frame")
         self._writer.add_scalar('fps', fps, step="frame")
+
+
+class OptimisationRunner(EnvRunner):
+    def __init__(self, agent,
+                 env,
+                 writer,
+                 frames=np.inf,
+                 episodes=np.inf,
+                 log=True,
+                 render=False,
+                 quiet=False,
+                 write_episode_return=False):
+        self._logging_enabled = log
+        self.rewards = []
+        self.write_episode_return = write_episode_return
+        self._log_file = None
+        super().__init__(agent, env, writer, frames, episodes, render, quiet)
+
+    def run(self):
+        if self.write_episode_return:
+            self._log_file = open("{0}/EpisodeReturn.fso".format(self._writer.log_dir), "w+")
+            print("Created LOG FILE: {0}".format(self._log_file))
+        while not self._done():
+            self._run_episode()
+
+    def _run_episode(self):
+        start_time = timer()
+        start_frames = self._writer.frames
+        returns = self._run_until_terminal_state()
+        end_time = timer()
+        fps = (self._writer.frames - start_frames) / (end_time - start_time)
+        if self._logging_enabled:
+            self._log(returns, fps)
+        if self.write_episode_return and self._log_file is not None:
+            self._log_file.write("{0}\t{1}\n".format(self._writer.episodes, returns))
+            if self._writer.episodes % 10 == 0:
+                self._log_file.flush()
+        self.rewards.append(returns)
+        self._writer.episodes += 1
+
+    def _run_until_terminal_state(self):
+        agent = self._agent
+        env = self._env
+
+        env.reset()
+        returns = 0
+        action = agent.act(env.state, env.reward)
+
+        while not env.done:
+            self._writer.frames += 1
+            if self._render:
+                env.render()
+            env.step(action)
+            returns += env.reward
+            action = agent.act(env.state, env.reward)
+
+        return returns
+
 
 class SingleEnvRunner(EnvRunner):
     def run(self):
