@@ -6,12 +6,12 @@ import numpy as np
 from all.environments import State
 
 class Normalizer:
-    def __init__(self, box):
+    def __init__(self, box, device):
         samples = np.array([box.sample() for x in range(10000)])
         low = np.min(samples, axis=0)
         high = np.max(samples, axis=0)
-        self.maxValues = torch.tensor(high, device="cuda")
-        self.minValues = torch.tensor(low, device="cuda")
+        self.maxValues = torch.tensor(high, device=device)
+        self.minValues = torch.tensor(low, device=device)
 
     def normalize(self, values):
         normVal = 2*(values - self.minValues) / (self.maxValues - self.minValues) - 1
@@ -36,7 +36,7 @@ class RLNetwork(nn.Module):
         self.device = next(model.parameters()).device
         self._normalizer = None
         if normalize_inputs is True and box is not None:
-            self._normalizer = Normalizer(box)
+            self._normalizer = Normalizer(box, self.device)
         self.count = 0
 
     def forward(self, state):
