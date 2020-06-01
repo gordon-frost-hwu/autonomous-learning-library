@@ -76,6 +76,11 @@ class OptimisationRunner(EnvRunner):
         self._log_file = None
         super().__init__(agent, env, writer, frames, episodes, render, quiet)
 
+    def __del__(self):
+        print("DISPOSING OF ALL RUNNER FILE")
+        if self.write_episode_return:
+            self._log_file.close()
+
     def run(self):
         if self.write_episode_return:
             self._log_file = open("{0}/EpisodeReturn.fso".format(self._writer.log_dir), "w+")
