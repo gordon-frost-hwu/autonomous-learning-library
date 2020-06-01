@@ -50,6 +50,7 @@ class Approximation():
             self,
             model,
             optimizer,
+            quiet=False,
             checkpointer=None,
             clip_grad=0,
             loss_scaling=1,
@@ -69,15 +70,17 @@ class Approximation():
         self._cache = []
         self._clip_grad = clip_grad
         self._writer = writer
+        self._quiet = quiet
         self._name = name
 
-        if checkpointer is None:
-            checkpointer = PeriodicCheckpointer(DEFAULT_CHECKPOINT_FREQUENCY)
-        self._checkpointer = checkpointer
-        self._checkpointer.init(
-            self.model,
-            os.path.join(writer.log_dir, name + '.pt')
-        )
+        if not self._quiet:
+            if checkpointer is None:
+                checkpointer = PeriodicCheckpointer(DEFAULT_CHECKPOINT_FREQUENCY)
+            self._checkpointer = checkpointer
+            self._checkpointer.init(
+                self.model,
+                os.path.join(writer.log_dir, name + '.pt')
+            )
 
     def __call__(self, *inputs):
         '''
@@ -111,7 +114,8 @@ class Approximation():
         if self._scheduler:
             self._writer.add_schedule(self._name + '/lr', self._optimizer.param_groups[0]['lr'])
             self._scheduler.step()
-        self._checkpointer()
+        if not self._quiet:
+            self._checkpointer()
         return self
 
     def zero_grad(self):

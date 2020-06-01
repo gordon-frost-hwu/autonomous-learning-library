@@ -7,6 +7,7 @@ class VNetwork(Approximation):
             model,
             optimizer,
             name='v',
+            quiet=False,
             normalise_inputs=False,
             box=None,
             **kwargs
@@ -15,6 +16,7 @@ class VNetwork(Approximation):
         super().__init__(
             model,
             optimizer,
+            quiet=quiet,
             name=name,
             **kwargs
         )

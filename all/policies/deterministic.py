@@ -9,6 +9,7 @@ class DeterministicPolicy(Approximation):
             model,
             optimizer,
             space,
+            quiet=False,
             name='policy',
             normalise_inputs=False,
             box=None,
@@ -19,6 +20,7 @@ class DeterministicPolicy(Approximation):
             model,
             optimizer,
             name=name,
+            quiet=quiet,
             **kwargs
         )
 
