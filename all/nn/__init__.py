@@ -10,8 +10,8 @@ class Normalizer:
         samples = np.array([box.sample() for x in range(10000)])
         low = np.min(samples, axis=0)
         high = np.max(samples, axis=0)
-        self.maxValues = torch.tensor(high, device=device)
-        self.minValues = torch.tensor(low, device=device)
+        self.maxValues = torch.tensor(high, device=device).float()
+        self.minValues = torch.tensor(low, device=device).float()
 
     def normalize(self, values):
         normVal = 2*(values - self.minValues) / (self.maxValues - self.minValues) - 1

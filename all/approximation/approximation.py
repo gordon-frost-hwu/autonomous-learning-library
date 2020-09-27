@@ -73,6 +73,7 @@ class Approximation():
         self._quiet = quiet
         self._name = name
 
+        self.model = self.model.float()
         if not self._quiet:
             if checkpointer is None:
                 checkpointer = PeriodicCheckpointer(DEFAULT_CHECKPOINT_FREQUENCY)

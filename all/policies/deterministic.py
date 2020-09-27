@@ -35,7 +35,7 @@ class DeterministicPolicyNetwork(RLNetwork):
         return self._squash(super().forward(state))
 
     def _squash(self, x):
-        return torch.tanh(x) * self._tanh_scale + self._tanh_mean
+        return (torch.tanh(x) * self._tanh_scale + self._tanh_mean).float()
 
     def to(self, device):
         self._tanh_mean = self._tanh_mean.to(device)
