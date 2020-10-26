@@ -67,7 +67,8 @@ class ExperimentWriter(SummaryWriter, Writer):
                 folder_name = "run{0}".format(maxDirectoryIndex + 1)
             else:
                 folder_name = "{0}_run{1}".format(agent_name, maxDirectoryIndex + 1)
-            self.log_dir = os.path.join(parent_folder, folder_name)
+            # self.log_dir = os.path.join(parent_folder, folder_name)
+            self.log_dir = parent_folder
         else:
             self.log_dir = os.path.join(
                 "runs", ("%s_%s_%s" % (agent_name, COMMIT_HASH, current_time))
