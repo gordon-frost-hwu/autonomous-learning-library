@@ -105,6 +105,13 @@ class Approximation():
         self.step()
         return self
 
+    def reinforce2(self, loss, retain_graph=False):
+        loss = self._loss_scaling * loss
+        self._writer.add_loss(self._name, loss.detach())
+        loss.backward(retain_graph=retain_graph)
+        self.step()
+        return self
+
     def step(self):
         '''Given that a backward pass has been made, run an optimization step.'''
         if self._clip_grad != 0:

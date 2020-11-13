@@ -18,6 +18,46 @@ class ReplayBuffer(ABC):
     def update_priorities(self, indexes, td_errors):
         '''Update priorities based on the TD error'''
 
+class MyReplayBuffer():
+    def __init__(self, size, device=torch.device('cpu')):
+        self.buffer = []
+        self.capacity = int(size)
+        self.pos = 0
+        self.device = device
+
+    def store(self, state, det_action, sto_action, tde, next_state):
+        if state is not None and not state.done:
+            self._add((state, det_action, sto_action, tde, next_state))
+
+    def sample(self, batch_size):
+        keys = np.random.choice(len(self.buffer), batch_size, replace=True)
+        minibatch = [self.buffer[key] for key in keys]
+        return self._reshape(minibatch, torch.ones(batch_size, device=self.device))
+
+    def update_priorities(self, td_errors):
+        pass
+
+    def _add(self, sample):
+        if len(self.buffer) < self.capacity:
+            self.buffer.append(sample)
+        else:
+            self.buffer[self.pos] = sample
+        self.pos = (self.pos + 1) % self.capacity
+
+    def _reshape(self, minibatch, weights):
+        states = State.from_list([sample[0] for sample in minibatch])
+        det_actions = torch.cat([sample[1] for sample in minibatch])
+        sto_actions = torch.cat([sample[2] for sample in minibatch])
+        tdes        = torch.cat([sample[3] for sample in minibatch])
+        next_states = State.from_list([sample[4] for sample in minibatch])
+        return (states, det_actions, sto_actions, tdes, next_states, weights)
+
+    def __len__(self):
+        return len(self.buffer)
+
+    def __iter__(self):
+        return iter(self.buffer)
+
 
 # Adapted from:
 # https://github.com/Shmuma/ptan/blob/master/ptan/experience.py
